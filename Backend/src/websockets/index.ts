@@ -1,0 +1,142 @@
+import { WebSocket, WebSocketServer } from "ws";
+import wsAuthMiddleware from "../middleware/wsAuthMiddleware.js";
+import { Console } from "console";
+import { prismaClient } from "../db/client.js";
+import { SignallingServer } from "./signalling.js";
+
+export interface ConnectedUserType {
+  ws: WebSocket,
+  userId: string,
+  rooms: Set<string>
+}
+
+const connectedUser: ConnectedUserType[] = [];
+
+export function initWebSocket(server: any) {
+
+  const wss = new WebSocketServer({ server });
+
+  wss.on("connection", (ws, request) => {
+
+    const url = request.url;
+
+    if (!url) {
+      return
+    }
+
+    const queryParams = new URLSearchParams(url.split('?')[1]);
+
+    //disabled for testing purposes
+
+    // const token = queryParams.get('token') || "";
+    // const userId = wsAuthMiddleware(token)
+
+    // if (userId === null) {
+    //   ws.close();
+    //   return null
+    // }
+
+    //added for testing purposes
+    const userId = crypto.randomUUID();
+
+    //storing user in-memory
+    const user: ConnectedUserType = {
+      ws,
+      userId,
+      rooms: new Set()
+    }
+
+    connectedUser.push(user);
+
+    console.log(`Ws Connected: User is ${userId}`)
+
+    ws.on('message', async (data) => {
+
+      const rawData = data.toString();
+      console.log("Received raw data:", rawData)
+
+      let parsedData;
+      try {
+        parsedData = JSON.parse(rawData)
+        console.log("Parsed data successfully:", parsedData)
+
+      } catch (error) {
+        console.log("Invalid JSON from ws. Raw data was:", rawData)
+        console.log("Parse error:", error)
+        return;
+      }
+
+
+
+      if (parsedData.type === "join-room") {
+
+        const roomId = String(parsedData.roomId)
+
+        const room = await prismaClient.room.findUnique({
+          where: {
+            id: roomId
+          }
+        })
+
+        if (!room) {
+          ws.send(JSON.stringify({
+            type: "Error",
+            message: "Room Does not exist"
+          }));
+          return;
+        }
+
+        user?.rooms.add(roomId)
+        console.log(`User ${userId} joined Room ${roomId}`);
+
+      } else if (parsedData.type === "leave-room") {
+
+        const roomId = String(parsedData.roomId);
+        user.rooms.delete(roomId)
+        console.log(`User ${userId} has left the room ${roomId}`);
+
+      } else if (parsedData.type === "chat") {
+
+        const roomId = String(parsedData.roomId);
+        const message = parsedData.message;
+
+        console.log(`New Message from ${userId} in Room ${roomId}`);
+
+        //Brodacast it to the All users in the room
+
+        connectedUser.forEach((u) => {
+          if (u.rooms.has(roomId)) {
+            u.ws.send(
+              JSON.stringify({
+                type: "chat",
+                roomId,
+                message,
+                sender: userId,
+              })
+            );
+          }
+        });
+      }
+      
+      // this is the signalling server condition
+      else if (["offer", "answer", "ice-candidate"].includes(parsedData.type)) {
+
+        SignallingServer(ws, parsedData, userId, connectedUser);
+
+      } else {
+
+        console.log("Unknown WS event", parsedData.type)
+      }
+    });
+
+    ws.on("close", () => {
+      const index = connectedUser.indexOf(user);
+      if (index !== -1) {
+        connectedUser.splice(index, 1);
+      }
+      console.log(`WS disconnected ${userId}`)
+    });
+  });
+
+  console.log("WebSocket server initialized");
+}

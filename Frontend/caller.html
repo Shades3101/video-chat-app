@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<body>
+<h2>Caller</h2>
+
+<button onclick="startCall()">Start Call</button>
+<button onclick="toggleAudio()">Mute/Unmute</button>
+<button onclick="toggleVideo()">Video On/Off</button>
+<button onclick="leaveCall()">Leave</button>
+
+<br><br>
+
+<video id="local" autoplay playsinline muted style="width:500px; background:black;"></video>
+<video id="remote" autoplay playsinline muted style="width:500px; background:black;"></video>
+
+<script>
+const ws = new WebSocket("ws://localhost:3001");
+const roomId = "92732dc1-0082-4105-9a5d-bde42d931932";
+
+let pc = null;
+let stream = null;
+let audioEnabled = true;
+let videoEnabled = true;
+
+// ICE buffer
+let pendingCandidates = [];
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({ type: "join-room", roomId }));
+  console.log("Caller joined room", roomId);
+};
+
+ws.onmessage = async (msg) => {
+  const data = JSON.parse(msg.data);
+  console.log("Caller received:", data);
+
+  if (!pc) return;
+
+  if (data.type === "answer") {
+    await pc.setRemoteDescription(data.payload);
+
+    // apply buffered candidates
+    for (const cand of pendingCandidates) {
+      await pc.addIceCandidate(cand);
+    }
+    pendingCandidates = [];
+
+    console.log("Caller set remote description (answer)");
+  }
+
+  if (data.type === "ice-candidate") {
+    if (pc.remoteDescription) {
+      await pc.addIceCandidate(data.payload);
+    } else {
+      pendingCandidates.push(data.payload);
+    }
+  }
+};
+
+async function startCall() {
+  pc = createPeerConnection();
+
+  stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  document.getElementById("local").srcObject = stream;
+
+  stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  ws.send(JSON.stringify({
+    type: "offer",
+    roomId,
+    payload: offer
+  }));
+
+  console.log("Caller sent offer");
+}
+
+function createPeerConnection() {
+  const pc = new RTCPeerConnection();
+
+  pc.ontrack = (event) => {
+    const remoteVideo = document.getElementById("remote");
+    remoteVideo.srcObject = event.streams[0];
+    remoteVideo.play().catch(err => console.log("Remote autoplay blocked:", err));
+  };
+
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      ws.send(JSON.stringify({
+        type: "ice-candidate",
+        roomId,
+        payload: e.candidate
+      }));
+    }
+  };
+
+  return pc;
+}
+
+function toggleAudio() {
+  if (!stream) return;
+  audioEnabled = !audioEnabled;
+  stream.getAudioTracks().forEach(t => t.enabled = audioEnabled);
+}
+
+function toggleVideo() {
+  if (!stream) return;
+  videoEnabled = !videoEnabled;
+  stream.getVideoTracks().forEach(t => t.enabled = videoEnabled);
+}
+
+function leaveCall() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  if (pc) pc.close();
+  ws.close();
+}
+</script>
+
+</body>
+</html>
