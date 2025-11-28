@@ -1,24 +1,24 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Menu, X, PlayCircle } from "lucide-react"; // Added PlayCircle for logo
+import { Menu, X, PlayCircle } from "lucide-react"; 
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils"; // Assuming you have a cn utility, if not, standard string interp works
+import { cn } from "@/lib/utils"; 
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  // Close mobile menu when route changes
+  
   useEffect(() => {
     setIsMenuOpen(false);
   }, [pathname]);
 
   const navItems = [
     { name: "Home", href: "/" },
-    { name: "Explore", href: "/explore" }, // Added a common video-app link
+    { name: "Explore", href: "/explore" },
     { name: "Pricing", href: "/pricing" },
   ];
 
@@ -28,11 +28,8 @@ const Header = () => {
         
         {/* Logo Section */}
         <Link href="/" className="flex items-center gap-2 group">
-            <div className="bg-primary/10 p-1.5 rounded-lg group-hover:bg-primary/20 transition-colors">
-                <PlayCircle className="w-6 h-6 text-primary" />
-            </div>
             <span className="text-xl font-bold text-foreground tracking-tight">
-                StreamFlow
+                Meet-Clone
             </span>
         </Link>
 
@@ -55,6 +52,9 @@ const Header = () => {
         </nav>
 
         {/* Desktop Auth Buttons */}
+
+          {/* TODO: Show User and disable auth button if the user is logged in */}
+
         <div className="hidden md:flex items-center gap-4">
           <Link
             href="/signin"

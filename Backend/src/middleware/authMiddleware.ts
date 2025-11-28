@@ -5,17 +5,20 @@ import dotenv from "dotenv"
 dotenv.config()
 
 export const secret = process.env.JWT_SECRET || "12345678bfdksjfkjsf";
-console.log(secret)
-export default function authMiddleware(req: Request, res: Response, next: NextFunction) {
-    
-    const token = req.headers["authorization"] ?? "";
 
-    const vtoken = jwt.verify(token, secret) as JwtPayload;
-    
-    if(token) {
+export default function authMiddleware(req: Request, res: Response, next: NextFunction) {
+
+    const token = req.cookies?.token;
+
+    if (!token) {
+        return response(res, 401, "Unauthorized: Token not found")
+    }
+
+    try {
+        const vtoken = jwt.verify(token, secret) as JwtPayload;
         req.userId = vtoken.userId;
         next();
-    } else {
-        return response(res, 403, "Unauthorized Access")
+    } catch (error) {
+        return response(res, 403, "Forbidden: Invalid or Expired Token")
     }
 }

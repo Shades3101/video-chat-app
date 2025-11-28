@@ -5,15 +5,22 @@ import { initWebSocket } from "./websockets/index.js";
 import { RoomRoute } from "./Routes/RoomRouter.js";
 import cors from "cors";
 import { userRoute } from "./Routes/UserRotuer.js";
-
+import { chatRoute } from "./Routes/ChatRouter.js";
+import cookieParser from "cookie-parser";
 
 const app = express();
-app.use(cors)
+app.use(cors({
+    origin: ["http://localhost:3000"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
+}))
 app.use(express.json())
+app.use(cookieParser())
 
 app.use("/api", authRoute)
-app.use("/api", RoomRoute);
+app.use("/api", RoomRoute)
 app.use("/api", userRoute)
+app.use("/api/", chatRoute)
 
 const server = http.createServer(app);
 

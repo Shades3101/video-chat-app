@@ -36,13 +36,13 @@ const Hero = () => {
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in"
                         style={{ animationDelay: '0.3s' }}>
-                        <Button variant="hero" size="lg" className="w-full sm:w-auto">
+                        <Button variant="hero" size="lg" className="w-full sm:w-auto hover:bg-blue-600 cursor-pointer">
                             Start Meeting Now
                         </Button>
                         <Button
                             variant="outline"
                             size="lg"
-                            className="w-full sm:w-auto bg-secondary backdrop-blur-sm border-border hover:bg-muted hover:border-primary/50 transition-all duration-300"
+                            className="w-full sm:w-auto bg-secondary backdrop-blur-sm border-border hover:border-primary/50 transition-all duration-300 hover:bg-gray-700 cursor-pointer"
                         >
                             Schedule Meeting
                         </Button>

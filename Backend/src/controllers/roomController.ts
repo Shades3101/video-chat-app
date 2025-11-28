@@ -20,7 +20,7 @@ export default async function CreateRoom(req: Request, res: Response) {
     try {
         const room = await prismaClient.room.create({
             data: {
-                title: parsedData.data.title,
+                slug: parsedData.data.slug,
                 hostId: userId
             }
         })
@@ -70,3 +70,20 @@ export async function getAllRoom (req: Request, res: Response) {
     }
 
 } 
+
+export async function getRoomId(req: Request, res: Response){
+
+    const slug = req.params.slug
+
+    if(!slug){
+        return response(res, 404, "Slug is Required")
+    }
+
+    const room = await prismaClient.room.findFirst({
+        where: {
+            slug
+        }
+    })
+
+    return response(res, 200, "Room Fetched Successfully", room)
+}

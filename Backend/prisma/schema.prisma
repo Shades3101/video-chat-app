@@ -15,18 +15,30 @@ datasource db {
 
 model User {
   id              String               @id @default(uuid())
-  email           String            @unique
+  email           String               @unique
   password        String
-  name            String?
+  name            String
   photo           String?
-  createdAt       DateTime          @default(now())
-  rooms           Room[]  @relation("UserRooms")
+  createdAt       DateTime             @default(now())
+  rooms           Room[]              
+  chats           Chat[]
 }
 
 model Room {
-  id              String          @id @default(uuid()) // The unique Room ID
-  title           String
+  id              String               @id @default(uuid()) 
+  slug            String               @unique
   hostId          String
-  host            User            @relation("UserRooms", fields: [hostId], references: [id])
-  createdAt       DateTime        @default(now())
+  host            User                 @relation(fields: [hostId], references: [id])
+  createdAt       DateTime             @default(now())
+  chats           Chat[]
+}
+
+model Chat {
+  id              Int                  @id @default(autoincrement())
+  roomId          String
+  message         String
+  userId          String
+  room            Room                 @relation(fields: [roomId], references: [id])
+  user            User                 @relation(fields: [userId], references: [id])
+  createdAt       DateTime             @default(now())
 }

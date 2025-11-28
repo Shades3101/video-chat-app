@@ -68,13 +68,37 @@ export async function SignIn(req: Request, res: Response) {
             const token = jwt.sign({
                 userId: user.id
             }, secret,
-                { expiresIn: "2h" });
+                { expiresIn: "8h" });
 
-            return response(res, 200, "Token: ", token)
+            res.cookie("token", token, {
+                httpOnly: true,
+                secure: false,
+                sameSite: "lax"
+            });
+
+            // send user data or success message
+            return response(res, 200, "Login Success", user.id);
         }
 
     } catch (error) {
         console.log(error)
         return response(res, 500, "Internal Server Error")
+    }
+}
+
+export async function WsToken(req: Request, res: Response) {
+
+      try {
+        const userId = req.userId;
+
+        const wsToken = jwt.sign(
+            { userId },
+            secret,
+            { expiresIn: "15m" } 
+        );
+
+        return response(res, 200, "Ws Token", wsToken)
+    } catch (err) {
+        return response(res, 500, "Failed to issue WS token");
     }
 }

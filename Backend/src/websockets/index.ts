@@ -1,6 +1,5 @@
 import { WebSocket, WebSocketServer } from "ws";
 import wsAuthMiddleware from "../middleware/wsAuthMiddleware.js";
-import { Console } from "console";
 import { prismaClient } from "../db/client.js";
 import { SignallingServer } from "./signalling.js";
 
@@ -25,19 +24,13 @@ export function initWebSocket(server: any) {
     }
 
     const queryParams = new URLSearchParams(url.split('?')[1]);
+    const token = queryParams.get('token') || "";
+    const userId = wsAuthMiddleware(token)
 
-    //disabled for testing purposes
-
-    // const token = queryParams.get('token') || "";
-    // const userId = wsAuthMiddleware(token)
-
-    // if (userId === null) {
-    //   ws.close();
-    //   return null
-    // }
-
-    //added for testing purposes
-    const userId = crypto.randomUUID();
+    if (userId === null) {
+      ws.close();
+      return null
+    }
 
     //storing user in-memory
     const user: ConnectedUserType = {
@@ -53,7 +46,6 @@ export function initWebSocket(server: any) {
     ws.on('message', async (data) => {
 
       const rawData = data.toString();
-      console.log("Received raw data:", rawData)
 
       let parsedData;
       try {
@@ -61,7 +53,6 @@ export function initWebSocket(server: any) {
         console.log("Parsed data successfully:", parsedData)
 
       } catch (error) {
-        console.log("Invalid JSON from ws. Raw data was:", rawData)
         console.log("Parse error:", error)
         return;
       }
@@ -100,6 +91,17 @@ export function initWebSocket(server: any) {
         const roomId = String(parsedData.roomId);
         const message = parsedData.message;
 
+        //use queue - better approach, push it to queue
+        //add try-catch to avoid crashing of the server 
+        //FIX the bug (do not save chats if a user is not in the room)
+        await prismaClient.chat.create({
+          data: {
+            roomId,
+            message,
+            userId
+          }
+        });
+
         console.log(`New Message from ${userId} in Room ${roomId}`);
 
         //Brodacast it to the All users in the room
@@ -117,7 +119,7 @@ export function initWebSocket(server: any) {
           }
         });
       }
-      
+
       // this is the signalling server condition
       else if (["offer", "answer", "ice-candidate"].includes(parsedData.type)) {
 
