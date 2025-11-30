@@ -24,7 +24,7 @@ export function initWebSocket(server: any) {
     }
 
     const queryParams = new URLSearchParams(url.split('?')[1]);
-    const token = queryParams.get('token') || "";
+    const token = queryParams.get('wstoken') || "";
     const userId = wsAuthMiddleware(token)
 
     if (userId === null) {
@@ -57,8 +57,6 @@ export function initWebSocket(server: any) {
         return;
       }
 
-
-
       if (parsedData.type === "join-room") {
 
         const roomId = String(parsedData.roomId)
@@ -80,10 +78,33 @@ export function initWebSocket(server: any) {
         user?.rooms.add(roomId)
         console.log(`User ${userId} joined Room ${roomId}`);
 
+        connectedUser.forEach((u) => {
+            // Send to everyone in this room EXCEPT the person who just joined
+            if (u.rooms.has(roomId) && u.userId !== userId) {
+                console.log(`Notifying ${u.userId} that ${userId} joined`);
+                u.ws.send(JSON.stringify({
+                    type: "user-joined",
+                    roomId,
+                    userId 
+                }));
+            }
+        });
+
       } else if (parsedData.type === "leave-room") {
 
         const roomId = String(parsedData.roomId);
         user.rooms.delete(roomId)
+
+        connectedUser.forEach((u) => {
+            if (u.rooms.has(roomId) && u.userId !== userId) {
+                u.ws.send(JSON.stringify({
+                    type: "user-left",
+                    roomId,
+                    userId
+                }));
+            }
+        });
+        
         console.log(`User ${userId} has left the room ${roomId}`);
 
       } else if (parsedData.type === "chat") {

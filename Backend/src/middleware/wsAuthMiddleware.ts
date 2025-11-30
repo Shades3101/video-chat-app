@@ -16,7 +16,6 @@ export default function wsAuthMiddleware(token: string): string | null {
         if (!vtoken || !vtoken.userId) {
             return null
         }
-        console.log("user reached here")
         return vtoken.userId
 
     } catch (e) {

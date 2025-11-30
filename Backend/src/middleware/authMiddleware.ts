@@ -8,7 +8,7 @@ export const secret = process.env.JWT_SECRET || "12345678bfdksjfkjsf";
 
 export default function authMiddleware(req: Request, res: Response, next: NextFunction) {
 
-    const token = req.cookies?.token;
+    const token = req.cookies?.access_token;
 
     if (!token) {
         return response(res, 401, "Unauthorized: Token not found")

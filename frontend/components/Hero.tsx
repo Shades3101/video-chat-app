@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Video, Users, Shield } from "lucide-react";
+import Link from "next/link";
 
 const Hero = () => {
     return (
@@ -37,7 +38,9 @@ const Hero = () => {
                     <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in"
                         style={{ animationDelay: '0.3s' }}>
                         <Button variant="hero" size="lg" className="w-full sm:w-auto hover:bg-blue-600 cursor-pointer">
-                            Start Meeting Now
+                            <Link href={"/me"}>
+                                Start Meeting Now
+                            </Link>
                         </Button>
                         <Button
                             variant="outline"

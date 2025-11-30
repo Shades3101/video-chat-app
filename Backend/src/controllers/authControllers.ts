@@ -70,7 +70,7 @@ export async function SignIn(req: Request, res: Response) {
             }, secret,
                 { expiresIn: "8h" });
 
-            res.cookie("token", token, {
+            res.cookie("access_token", token, {
                 httpOnly: true,
                 secure: false,
                 sameSite: "lax"
@@ -88,17 +88,32 @@ export async function SignIn(req: Request, res: Response) {
 
 export async function WsToken(req: Request, res: Response) {
 
-      try {
+    try {
         const userId = req.userId;
 
         const wsToken = jwt.sign(
             { userId },
             secret,
-            { expiresIn: "15m" } 
+            { expiresIn: "15m" }
         );
 
         return response(res, 200, "Ws Token", wsToken)
     } catch (err) {
         return response(res, 500, "Failed to issue WS token");
+    }
+}
+
+export async function Logout(req:Request, res: Response) {
+    try {
+        res.clearCookie("access_token", {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: false
+        })
+
+        return response(res, 200, "Successfully Logged Out");
+    } catch (error) {
+        console.log(error);
+        return response(res, 500, "Internal Server Error")
     }
 }

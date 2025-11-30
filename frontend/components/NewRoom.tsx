@@ -7,10 +7,11 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
+import { useRouter } from "next/navigation";
 
 export default function NewRoom() {
+    const router = useRouter();
 
-    const [isLoading, setIsLoading] = useState(false);
     const [slug, setSlug] = useState("");
 
     const newRoomHandle = async () => {
@@ -21,12 +22,11 @@ export default function NewRoom() {
             )
             
             console.log("Room Created", resposne.data)
+            router.refresh()
         } catch (error) {
             console.log(error);
         }
     }
-
-
 
     return <div>
         <Dialog>

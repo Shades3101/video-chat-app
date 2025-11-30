@@ -6,22 +6,29 @@ export async function Me(req: Request, res: Response) {
 
     const userId = req.userId;
 
-    if(!userId) {
+    if (!userId) {
         return response(res, 400, "Sign In or Sign Up First")
     }
 
     try {
         const user = await prismaClient.user.findUnique({
             where: {
-                id: userId 
+                id: userId
             },
             select: {
-                id: true, 
-                email: true
+                id: true,
+                name: true,
+                email: true,
+                photo: true
             }
         })
 
-        return response(res, 200, "User Found Successfully", user)
+        if (!user) {
+            return response(res, 404, "User Not Found")
+        } else {
+            return response(res, 200, "User Found Successfully", user)
+        }
+
     } catch (error) {
         console.log(error);
         return response(res, 500, "Internal Server Error")
