@@ -11,12 +11,22 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const PORT = process.env.PORT || 3001;
+
 const app = express();
 app.use(cors({
-    origin: [process.env.FRONTEND_URL || "http://localhost:3000"],
+    origin: process.env.FRONTEND_URL,
     methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
 }))
+
+// REQUIRED: handle preflight requests
+app.options("*", cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true
+}));
+
 app.use(express.json())
 app.use(cookieParser())
 
@@ -26,9 +36,8 @@ app.use("/api", userRoute)
 app.use("/api/", chatRoute)
 
 const server = http.createServer(app);
-
 initWebSocket(server)
 
-server.listen(3001, () => {
-    console.log("Listening On Port 3001 with Both HTTP & WS")
+server.listen(PORT, () => {
+    console.log(`Listening On Port ${PORT} with Both HTTP & WS`)
 });
