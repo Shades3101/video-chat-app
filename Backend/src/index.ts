@@ -17,7 +17,7 @@ console.log("Allowed Origin:", process.env.FRONTEND_URL);
 
 app.use(cors({
     origin: [process.env.FRONTEND_URL || "", "http://localhost:3000"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
 }))
