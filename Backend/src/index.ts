@@ -22,7 +22,7 @@ app.use(cors({
 }))
 
 // REQUIRED: handle preflight requests
-app.options("*", cors({
+app.options("/(.*)", cors({
     origin: process.env.FRONTEND_URL,
     credentials: true
 }));
