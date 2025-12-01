@@ -23,9 +23,11 @@ export function initWebSocket(server: any) {
       return
     }
 
-    // 100% safe parsing
+    
     const myURL = new URL(`https://dummy${url}`);
+    console.log(myURL);
     const token = myURL.searchParams.get("wstoken") || "";
+    console.log(token);
 
 
     // const queryParams = new URLSearchParams(url.split('?')[1]);
