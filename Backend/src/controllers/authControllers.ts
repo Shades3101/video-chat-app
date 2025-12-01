@@ -70,14 +70,10 @@ export async function SignIn(req: Request, res: Response) {
             }, secret,
                 { expiresIn: "8h" });
 
-            const isProduction = process.env.NODE_ENV === "production";
-
-            console.log("Setting cookie in", isProduction ? "production" : "development", "mode");
-
             res.cookie("access_token", token, {
                 httpOnly: true,
-                secure: isProduction,
-                sameSite: isProduction ? "none" : "lax",
+                secure: true,
+                sameSite: "none",
                 maxAge: 8 * 60 * 60 * 1000, // 8 hours in milliseconds
                 path: "/",
             });
@@ -113,12 +109,12 @@ export async function WsToken(req: Request, res: Response) {
 
 export async function Logout(req: Request, res: Response) {
     try {
-        const isProduction = process.env.NODE_ENV === "production";
+      
 
         res.clearCookie("access_token", {
             httpOnly: true,
-            sameSite: isProduction ? "none" : "lax",
-            secure: isProduction,
+            sameSite: "none",
+            secure: true,
             path: "/",
         })
 
