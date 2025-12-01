@@ -82,9 +82,12 @@ const Header = ({ user }: { user: User | null }) => {
 
           ) : (
             <>
-              <Link href="/signin" className="text-sm font-medium text-muted-foreground transition-colors">
+            <Button variant="link" >
+               <Link href="/signin" className="text-sm hover:text-blue-500 font-medium text-muted-foreground transition-colors">
                 Sign In
               </Link>
+            </Button>
+             
               <Button asChild size="sm" className="font-semibold cursor-pointer">
                 <Link href="/signup">Get Started</Link>
               </Button>

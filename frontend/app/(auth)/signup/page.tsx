@@ -115,10 +115,10 @@ const SignUp = () => {
                             <span className="w-full border-t border-border" />
                         </div>
                         <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                            <span className="bg-card px-2 text-muted-foreground hidden">Or continue with</span>
                         </div>
                     </div>
-                    <Button variant="outline" className="w-full border-border text-foreground hover:bg-secondary cursor-pointer">
+                    <Button variant="outline" className="w-full border-border text-foreground hover:bg-secondary cursor-pointer" hidden>
                         <Image src={"/google.svg"} width={15} height={15} alt="Google" />
                         Google
                     </Button>
@@ -130,8 +130,6 @@ const SignUp = () => {
                     </p>
                 </CardFooter>
             </Card>
-
-
         </div >
     );
 };

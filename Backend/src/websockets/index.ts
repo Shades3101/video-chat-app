@@ -43,6 +43,12 @@ export function initWebSocket(server: any) {
 
     console.log(`Ws Connected: User is ${userId}`)
 
+    // Send userId to the client
+    ws.send(JSON.stringify({
+      type: "connected",
+      userId
+    }));
+
     ws.on('message', async (data) => {
 
       const rawData = data.toString();
@@ -79,15 +85,15 @@ export function initWebSocket(server: any) {
         console.log(`User ${userId} joined Room ${roomId}`);
 
         connectedUser.forEach((u) => {
-            // Send to everyone in this room EXCEPT the person who just joined
-            if (u.rooms.has(roomId) && u.userId !== userId) {
-                console.log(`Notifying ${u.userId} that ${userId} joined`);
-                u.ws.send(JSON.stringify({
-                    type: "user-joined",
-                    roomId,
-                    userId 
-                }));
-            }
+          // Send to everyone in this room EXCEPT the person who just joined
+          if (u.rooms.has(roomId) && u.userId !== userId) {
+            console.log(`Notifying ${u.userId} that ${userId} joined`);
+            u.ws.send(JSON.stringify({
+              type: "user-joined",
+              roomId,
+              userId
+            }));
+          }
         });
 
       } else if (parsedData.type === "leave-room") {
@@ -96,15 +102,15 @@ export function initWebSocket(server: any) {
         user.rooms.delete(roomId)
 
         connectedUser.forEach((u) => {
-            if (u.rooms.has(roomId) && u.userId !== userId) {
-                u.ws.send(JSON.stringify({
-                    type: "user-left",
-                    roomId,
-                    userId
-                }));
-            }
+          if (u.rooms.has(roomId) && u.userId !== userId) {
+            u.ws.send(JSON.stringify({
+              type: "user-left",
+              roomId,
+              userId
+            }));
+          }
         });
-        
+
         console.log(`User ${userId} has left the room ${roomId}`);
 
       } else if (parsedData.type === "chat") {

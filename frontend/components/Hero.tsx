@@ -42,13 +42,7 @@ const Hero = () => {
                                 Start Meeting Now
                             </Link>
                         </Button>
-                        <Button
-                            variant="outline"
-                            size="lg"
-                            className="w-full sm:w-auto bg-secondary backdrop-blur-sm border-border hover:border-primary/50 transition-all duration-300 hover:bg-gray-700 cursor-pointer"
-                        >
-                            Schedule Meeting
-                        </Button>
+                
                     </div>
 
                     <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-8 animate-fade-in"

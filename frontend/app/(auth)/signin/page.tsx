@@ -97,11 +97,11 @@ const SignIn = () => {
                         <div className="absolute inset-0 flex items-center">
                             <span className="w-full border-t border-border" />
                         </div>
-                        <div className="relative flex justify-center text-xs uppercase">
+                        <div className="relative flex justify-center text-xs uppercase hidden">
                             <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
                         </div>
                     </div>
-                    <Button variant="outline" className="w-full border-border text-foreground hover:bg-secondary cursor-pointer">
+                    <Button variant="outline" className="w-full border-border text-foreground hover:bg-secondary cursor-pointer" hidden>
                         <Image src={"/google.svg"} width={15} height={15} alt="Google" />
                         Google
                     </Button>

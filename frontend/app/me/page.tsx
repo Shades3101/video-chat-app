@@ -53,11 +53,12 @@ export default async function Me() {
                 </section>
 
                 <Separator />
-                <section className="container mx-auto px-4 py-16 min-h-screen space-y-8">
+                <section className="container mx-auto px-4 py-16 min-h-screen space-y-8 ">
                     <div className="flex items-center justify-between">
                         <h2 className="text-3xl font-bold tracking-tight">My Rooms</h2>
+                        <NewRoom /> 
                     </div>
-                    <NewRoom /> 
+                    
                     <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
                           
                         {/* New Room Component */}

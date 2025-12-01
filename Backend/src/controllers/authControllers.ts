@@ -72,8 +72,8 @@ export async function SignIn(req: Request, res: Response) {
 
             res.cookie("access_token", token, {
                 httpOnly: true,
-                secure: false,
-                sameSite: "lax"
+                secure: true,
+                sameSite: "none"
             });
 
             // send user data or success message
@@ -107,8 +107,8 @@ export async function Logout(req:Request, res: Response) {
     try {
         res.clearCookie("access_token", {
             httpOnly: true,
-            sameSite: "lax",
-            secure: false
+            sameSite: "none",
+            secure: true
         })
 
         return response(res, 200, "Successfully Logged Out");

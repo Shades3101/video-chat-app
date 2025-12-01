@@ -12,6 +12,7 @@ export function UseSocket(token: string) {
 
     const wsRef = useRef<WebSocket | null>(null);
     const [isConnected, setIsConnected] = useState(true);
+    const [userId, setUserId] = useState<string | null>(null);
 
     useEffect(() => {
 
@@ -28,6 +29,18 @@ export function UseSocket(token: string) {
         ws.onopen = () => {
             console.log("Ws Connected")
             setIsConnected(true);
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === "connected" && data.userId) {
+                    setUserId(data.userId);
+                    console.log("Received userId:", data.userId);
+                }
+            } catch (error) {
+                console.error("Error parsing WebSocket message:", error);
+            }
         };
 
         ws.onerror = (error) => {
@@ -47,7 +60,8 @@ export function UseSocket(token: string) {
 
     return {
         socket: wsRef.current,
-        isConnected
+        isConnected,
+        userId
     }
 
 }

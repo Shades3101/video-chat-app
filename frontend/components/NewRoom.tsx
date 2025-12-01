@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 
 export default function NewRoom() {
     const router = useRouter();
@@ -31,8 +32,8 @@ export default function NewRoom() {
     return <div>
         <Dialog>
             <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 h-12 rounded-xl px-8 text-lg font-medium">
-                    New Room
+                <Button className="w-fit sm:w-auto bg-blue-500 hover:bg-blue-600 h-full rounded-xl px-8 text-lg font-medium bg-transparent hover:bg-gray-700">
+                    <Plus/>
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">

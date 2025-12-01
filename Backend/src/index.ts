@@ -7,10 +7,13 @@ import cors from "cors";
 import { userRoute } from "./Routes/UserRotuer.js";
 import { chatRoute } from "./Routes/ChatRouter.js";
 import cookieParser from "cookie-parser";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 app.use(cors({
-    origin: ["http://localhost:3000"],
+    origin: [process.env.FRONTEND_URL || "http://localhost:3000"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }))

@@ -1,210 +1,124 @@
 "use client";
-// REWRITE THIS WHOLE LOGIC AND FIX BUGS 
+
 import { UseSocket } from "@/hooks/useSocket";
 import { useEffect, useRef, useState } from "react";
-
-import { Mic, MicOff, Video, VideoOff, Monitor, Phone } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Monitor, Phone, MessageSquareText, } from "lucide-react";
 import { CustomButton } from "@/components/ui/custombutton";
 import { useRouter } from "next/navigation";
+import { InCallChatPanel } from "@/components/InCallChatPanel";
 
-export default function CallClient({ roomId, WsToken }: { roomId: string, WsToken: string }) {
+export default function CallClient({ roomId, WsToken, }: { roomId: string; WsToken: string; }) {
 
-    const { socket, isConnected } = UseSocket(WsToken);
+    // Early return MUST happen before any hooks
+    if (!WsToken) {
+        return null;
+    }
 
+    const { socket, isConnected, userId } = UseSocket(WsToken);
+
+    // --- WebRTC refs & state ---
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const pcRef = useRef<RTCPeerConnection | null>(null);
-    const hasJoinedRef = useRef(false); // Tracking if user has already joined
-    const hasSetupWebRTC = useRef(false); // Track if WebRTC has been initialized
+    const hasJoinedRef = useRef(false);
+    const hasSetupWebRTC = useRef(false);
+
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+
     const [isMicOn, setIsMicOn] = useState(false);
     const [isVideoOn, setIsVideoOn] = useState(false);
+
     const router = useRouter();
 
-    if (!WsToken) return null;
+    // --- Chat state ---
+    const [showChat, setShowChat] = useState(false);
+    const [chatMessages, setChatMessages] = useState<any[]>([]);
 
     useEffect(() => {
         if (!socket || !isConnected) return;
 
-        // Only join once per socket connection
+        // Join room
         if (!hasJoinedRef.current) {
-            console.log("Joining room:", roomId);
-            socket.send(JSON.stringify({
-                type: "join-room",
-                roomId,
-            }));
+            socket.send(
+                JSON.stringify({
+                    type: "join-room",
+                    roomId,
+                })
+            );
             hasJoinedRef.current = true;
         }
 
-        // Only setup WebRTC once
         if (!hasSetupWebRTC.current) {
-            console.log("Setting up WebRTC...");
             setupWebRTC();
             hasSetupWebRTC.current = true;
         }
 
         const cleanup = setupSocketListeners();
-
         return () => {
-            console.log("Cleaning up CallClient useEffect");
-            cleanup(); // Clean up socket listeners
-            // Don't close peer connection here - only when leaving call
-            hasJoinedRef.current = false; // Reset on cleanup
+            cleanup();
+            hasJoinedRef.current = false;
         };
-    }, [socket, isConnected, roomId]);
+    }, [socket, isConnected]);
 
+    // link video streams
+    useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [remoteStream]);
 
-    const setupWebRTC = async () => {
+    useEffect(() => {
+        if (localVideoRef.current && localStream) {
+            localVideoRef.current.srcObject = localStream;
+        }
+    }, [localStream]);
+
+    const setupWebRTC = () => {
         const pc = new RTCPeerConnection({
             iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
         });
-
         pcRef.current = pc;
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                socket?.send(JSON.stringify({
-                    type: "ice-candidate",
-                    roomId,
-                    payload: event.candidate,
-                }));
+                socket?.send(
+                    JSON.stringify({
+                        type: "ice-candidate",
+                        roomId,
+                        payload: event.candidate,
+                    })
+                );
             }
         };
 
         pc.ontrack = (event) => {
-            console.log("Received remote track:", event.track.kind, event.streams);
-            if (remoteVideoRef.current) {
-                remoteVideoRef.current.srcObject = event.streams[0];
-                console.log("Set remote video srcObject");
+            if (event.streams && event.streams[0]) {
+                setRemoteStream(event.streams[0]);
+            } else {
+                const newStream = new MediaStream();
+                newStream.addTrack(event.track);
+                setRemoteStream(newStream);
             }
         };
     };
 
-    const toggleVideo = async () => {
-
-        if (isVideoOn) {
-            // Remove video tracks from peer connection
-            const senders = pcRef.current?.getSenders() || [];
-            senders.forEach(sender => {
-                if (sender.track?.kind === "video") {
-                    pcRef.current?.removeTrack(sender);
-                }
-            });
-
-            // Stop and remove from local stream
-            localStream?.getVideoTracks().forEach(t => {
-                t.stop();
-                localStream?.removeTrack(t);
-            });
-            setIsVideoOn(false);
-
-            // Update video element
-            if (localVideoRef.current) {
-                localVideoRef.current.srcObject = localStream;
-            }
-
-            // Renegotiate to update remote peer
-            await renegotiate();
-            return;
-        }
-
-        // TURN ON
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            await attachTracks(stream, "video");
-        } catch (err) {
-            console.log("Video blocked/denied", err);
-        }
-    };
-
-
-    const toggleMic = async () => {
-        if (isMicOn) {
-            // Remove audio tracks from peer connection
-            const senders = pcRef.current?.getSenders() || [];
-            senders.forEach(sender => {
-                if (sender.track?.kind === "audio") {
-                    pcRef.current?.removeTrack(sender);
-                }
-            });
-
-            // Stop and remove from local stream
-            localStream?.getAudioTracks().forEach(t => {
-                t.stop();
-                localStream?.removeTrack(t);
-            });
-            setIsMicOn(false);
-
-            // Renegotiate to update remote peer
-            await renegotiate();
-            return;
-        }
-
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            await attachTracks(stream, "audio");
-        } catch (err) {
-            console.log("Mic blocked/denied", err);
-        }
-    };
-
-
-    const attachTracks = async (stream: MediaStream, type: "video" | "audio") => {
-        let finalStream = localStream;
-
-        if (!finalStream) {
-            finalStream = new MediaStream();
-        }
-
-        // Add new track to combined stream
-        stream.getTracks().forEach(track => finalStream!.addTrack(track));
-
-        // Update state with the final stream
-        setLocalStream(finalStream);
-
-        // Display on UI
-        if (localVideoRef.current) localVideoRef.current.srcObject = finalStream;
-
-        // Add to peer connection
-        stream.getTracks().forEach(track => {
-            pcRef.current?.addTrack(track, finalStream!);
-        });
-
-        if (type === "video") setIsVideoOn(true);
-        if (type === "audio") setIsMicOn(true);
-
-        // Renegotiate to send new tracks to remote peer
-        await renegotiate();
-    };
-
     const renegotiate = async () => {
         const pc = pcRef.current;
-        if (!pc || !socket) {
-            console.log("Cannot renegotiate: missing peer connection or socket");
-            return;
-        }
+        if (!pc || !socket) return;
+        if (pc.signalingState !== "stable") return;
 
-        if (pc.signalingState !== "stable") {
-            console.log("Cannot renegotiate: signaling state is", pc.signalingState);
-            return;
-        }
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
 
-        try {
-            console.log("Renegotiating connection...");
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            socket.send(JSON.stringify({
+        socket.send(
+            JSON.stringify({
                 type: "offer",
                 roomId,
                 payload: offer,
-            }));
-            console.log("Renegotiation offer sent");
-        } catch (err) {
-            console.error("Renegotiation failed:", err);
-        }
+            })
+        );
     };
-
 
     const startCall = async () => {
         const pc = pcRef.current;
@@ -217,143 +131,275 @@ export default function CallClient({ roomId, WsToken }: { roomId: string, WsToke
             type: "offer",
             roomId,
             payload: offer,
-        }));
+        })
+        );
     };
 
+    const toggleMic = async () => {
+        if (isMicOn) {
+            // remove audio tracks
+            const senders = pcRef.current?.getSenders() || [];
+            senders.forEach((s) => {
+                if (s.track?.kind === "audio") pcRef.current?.removeTrack(s);
+            });
 
-    //Recheck this
+            localStream?.getAudioTracks().forEach((t) => {
+                t.stop();
+                localStream.removeTrack(t);
+            });
+
+            setIsMicOn(false);
+            await renegotiate();
+            return;
+        }
+
+        try {
+            const audio = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            let finalStream = localStream || new MediaStream();
+            audio.getTracks().forEach((t) => finalStream.addTrack(t));
+            setLocalStream(finalStream);
+
+            audio.getTracks().forEach((t) =>
+                pcRef.current?.addTrack(t, finalStream!)
+            );
+
+            setIsMicOn(true);
+            await renegotiate();
+        } catch (e) {
+            console.log("Mic blocked", e);
+        }
+    };
+
+    const toggleVideo = async () => {
+        if (isVideoOn) {
+            // remove video tracks
+            const senders = pcRef.current?.getSenders() || [];
+            senders.forEach((s) => {
+                if (s.track?.kind === "video") pcRef.current?.removeTrack(s);
+            });
+
+            localStream?.getVideoTracks().forEach((t) => {
+                t.stop();
+                localStream.removeTrack(t);
+            });
+
+            setIsVideoOn(false);
+            await renegotiate();
+            return;
+        }
+
+        try {
+            const video = await navigator.mediaDevices.getUserMedia({ video: true });
+
+            let finalStream = localStream || new MediaStream();
+            video.getTracks().forEach((t) => finalStream.addTrack(t));
+            setLocalStream(finalStream);
+
+            video.getTracks().forEach((t) =>
+                pcRef.current?.addTrack(t, finalStream!)
+            );
+
+            setIsVideoOn(true);
+            await renegotiate();
+        } catch (e) {
+            console.log("Video blocked", e);
+        }
+    };
+
     const setupSocketListeners = () => {
+        if (!socket) return () => { };
 
-        const messageHandler = async (event: MessageEvent) => {
+        socket.onmessage = async (event) => {
             const data = JSON.parse(event.data);
-            const pc = pcRef.current;
-            if (!pc) return;
 
+            // Handle connected message (userId is already captured in useSocket, but this ensures it's not missed)
+            if (data.type === "connected") {
+                return;
+            }
+
+            // Other user joined -> start call
             if (data.type === "user-joined") {
-                console.log("New participant entered. Auto starting call (offer)...");
                 startCall();
                 return;
             }
 
             if (data.type === "offer") {
+                const pc = pcRef.current;
+                if (!pc) return;
+
                 await pc.setRemoteDescription(data.payload);
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
 
-                socket!.send(JSON.stringify({
-                    type: "answer",
-                    roomId,
-                    payload: answer,
-                }));
+                socket.send(
+                    JSON.stringify({
+                        type: "answer",
+                        roomId,
+                        payload: answer,
+                    })
+                );
+                return;
             }
 
             if (data.type === "answer") {
-                await pc.setRemoteDescription(data.payload);
+                await pcRef.current?.setRemoteDescription(data.payload);
+                return;
             }
 
             if (data.type === "ice-candidate") {
-                try {
-                    await pc.addIceCandidate(data.payload);
-                } catch (err) {
-                    console.log("ICE error", err);
+                await pcRef.current?.addIceCandidate(data.payload);
+                return;
+            }
+
+            if (data.type === "chat") {
+
+                if (data.sender === userId) {
+                    return;
                 }
+                const incoming = {
+                    id: Date.now(),
+                    text: data.message,
+                    sender: data.sender === userId ? "me" : "other",
+                    time: new Date().toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    }),
+                };
+                setChatMessages((prev) => [...prev, incoming]);
+                return;
             }
         };
 
-        socket!.onmessage = messageHandler;
-
-        // Return cleanup function
         return () => {
-            if (socket) {
-                socket.onmessage = null;
-            }
+            socket.onmessage = null;
         };
     };
 
-    function leaveCall() {
+    const sendChatMessage = (text: string) => {
+        if (!text.trim()) return;
 
-        console.log("Leaving call");
+        const localMsg = {
+            id: Date.now(),
+            text,
+            sender: "me",
+            time: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+            }),
+        };
 
-        if (socket && isConnected) {
-            socket.send(JSON.stringify({
-                type: "leave-room",
+        setChatMessages((prev) => [...prev, localMsg]);
+
+        socket?.send(
+            JSON.stringify({
+                type: "chat",
                 roomId,
-            }));
+                message: text, // backend expects ONLY string
+            })
+        );
+    };
+
+    function leaveCall() {
+        if (socket && isConnected) {
+            socket.send(
+                JSON.stringify({
+                    type: "leave-room",
+                    roomId,
+                })
+            );
         }
 
-        //Stop local tracks
         if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            setLocalStream(null);
+            localStream.getTracks().forEach((t) => t.stop());
         }
 
-        // Stop remote tracks
-        if (remoteVideoRef.current?.srcObject) {
-            const remoteStream = remoteVideoRef.current.srcObject as MediaStream;
-            remoteStream.getTracks().forEach(track => track.stop());
-            remoteVideoRef.current.srcObject = null;
-        }
+        setRemoteStream(null);
 
-        // Clear video elements
-        if (localVideoRef.current) localVideoRef.current.srcObject = null;
-
-        // Close peer connection
         if (pcRef.current) {
-            pcRef.current.getSenders().forEach(sender => pcRef.current?.removeTrack(sender));
             pcRef.current.close();
             pcRef.current = null;
         }
 
-        // Reset UI toggles
-        setIsMicOn(false);
-        setIsVideoOn(false);
-
         router.push("/me");
     }
 
-
     return (
-        <div className="min-h-screen flex flex-col bg-background">
-            <main className="flex-1 flex flex-col p-4 md:p-8">
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="h-screen w-full flex flex-col items-center justify-center bg-background overflow-hidden relative">
+            {/* VIDEO AREA */}
+            <div className="relative w-full max-w-7xl aspect-video mx-auto bg-black rounded-3xl overflow-hidden shadow-2xl border border-white/5 ring-1 ring-white/5">
+                {remoteStream ? (
+                    <>
+                        <video
+                            ref={remoteVideoRef}
+                            autoPlay
+                            playsInline
+                            className="w-full h-full object-cover"
+                        />
 
-                    {/* Local Video */}
-                    <div className="relative bg-card rounded-lg overflow-hidden border border-border aspect-video flex items-center justify-center">
-                        <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-                        <div className="absolute bottom-4 left-4 bg-background/80 px-3 py-1 rounded-md">
-                            <span>You</span>
+                        {/* Local video */}
+                        <div className="absolute bottom-4 right-4 w-64 aspect-video bg-black/50 rounded-xl border border-white/20 shadow-2xl overflow-hidden z-10">
+                            <video
+                                ref={localVideoRef}
+                                autoPlay
+                                muted
+                                playsInline
+                                className="w-full h-full object-cover scale-x-[-1]"
+                            />
+                            <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-xs text-white">
+                                You
+                            </div>
                         </div>
-                    </div>
+                    </>
+                ) : (
+                    <video
+                        ref={localVideoRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover scale-x-[-1]"
+                    />
+                )}
+            </div>
 
-                    {/* Remote Video */}
-                    <div className="relative bg-card rounded-lg overflow-hidden border border-border aspect-video flex items-center justify-center">
-                        <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                        <div className="absolute bottom-4 left-4 bg-background/80 px-3 py-1 rounded-md">
-                            <span>Remote</span>
-                        </div>
-                    </div>
+            {/* Controls */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-50">
+
+                {/* Mic Button */}
+                <CustomButton variant={isMicOn ? "secondary" : "destructive"} onClick={toggleMic} className="rounded-full w-14 h-14 shadow-lg" >
+                    {isMicOn ? <Mic /> : <MicOff />}
+                </CustomButton>
+
+                {/* Video Button */}
+                <CustomButton
+                    variant={isVideoOn ? "secondary" : "destructive"}
+                    onClick={toggleVideo}
+                    className="rounded-full w-14 h-14 shadow-lg"
+                >
+                    {isVideoOn ? <Video /> : <VideoOff />}
+                </CustomButton>
+
+                {/* Soon ScreenShare */}
+                <CustomButton className="rounded-full w-14 h-14 bg-green-500 hover:bg-green-600 text-white shadow-lg">
+                    <Monitor />
+                </CustomButton>
+
+                {/* Chat  Button */}
+                <CustomButton onClick={() => setShowChat((prev) => !prev)} className="rounded-full w-14 h-14 text-white shadow-lg" variant={showChat ? "secondary" : "destructive"}>
+                    <MessageSquareText />
+                </CustomButton>
+
+                <CustomButton variant="destructive" className="rounded-full w-14 h-14 shadow-lg" onClick={leaveCall} >
+                    <Phone className="rotate-135" />
+                </CustomButton>
+            </div>
+
+            {/* CHAT PANEL */}
+            {showChat && (
+                <div className="absolute right-6 top-8 bottom-8 w-96 z-50">
+                    <InCallChatPanel messages={chatMessages} onSend={sendChatMessage} onClose={() => setShowChat(false)} />
                 </div>
-
-                {/* Controls */}
-                <div className="flex items-center justify-center gap-4 pb-8 ">
-                    <CustomButton variant={isMicOn ? "secondary" : "destructive"} onClick={toggleMic} className="rounded-full w-14 h-14" >
-                        {isMicOn ? <Mic /> : <MicOff />}
-                    </CustomButton>
-
-                    <CustomButton variant={isVideoOn ? "secondary" : "destructive"} onClick={toggleVideo} className="rounded-full w-14 h-14">
-                        {isVideoOn ? <Video /> : <VideoOff />}
-                    </CustomButton>
-
-                    <CustomButton className="rounded-full w-14 h-14 bg-green-500 text-white">
-                        <Monitor />
-                    </CustomButton>
-
-                    <CustomButton variant="destructive" className="rounded-full w-14 h-14 " onClick={() => leaveCall()}>
-                        <Phone className="rotate-135" />
-
-                    </CustomButton>
-                </div>
-            </main>
+            )}
         </div>
     );
 }
