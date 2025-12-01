@@ -2,6 +2,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import wsAuthMiddleware from "../middleware/wsAuthMiddleware.js";
 import { prismaClient } from "../db/client.js";
 import { SignallingServer } from "./signalling.js";
+import { IncomingMessage } from "http";
 
 export interface ConnectedUserType {
   ws: WebSocket,
@@ -15,24 +16,30 @@ export function initWebSocket(server: any) {
 
   const wss = new WebSocketServer({ server });
 
-  wss.on("connection", (ws, request) => {
+  wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
 
-    const url = request.url;
+    // 1. Better Logging & URL Parsing
+    console.log(`WS: Connection attempt from ${request.socket.remoteAddress}`);
+    
+    // We use a dummy base because request.url is just the path (e.g. "/?wstoken=...")
+    // This allows the URL constructor to parse it correctly regardless of environment
+    const url = request.url || "";
+    const myURL = new URL(url, `http://${request.headers.host || "localhost"}`);
+    
+    const token = myURL.searchParams.get('wstoken') || "";
 
-    if (!url) {
-      return
-    }
+    console.log("WS: Extracted Token:", token ? `${token.substring(0, 10)}...` : "None found");
 
-    const queryParams = new URLSearchParams(url.split('?')[1]);
-    const token = queryParams.get('wstoken') || "";
-    const userId = wsAuthMiddleware(token)
+    // 2. Auth Check
+    const userId = wsAuthMiddleware(token);
 
     if (userId === null) {
+      console.log("WS: Auth Failed - Invalid Token. Closing connection.");
       ws.close();
-      return null
+      return;
     }
 
-    //storing user in-memory
+    // 3. User Connected
     const user: ConnectedUserType = {
       ws,
       userId,
@@ -40,67 +47,64 @@ export function initWebSocket(server: any) {
     }
 
     connectedUser.push(user);
+    console.log(`WS Connected: User ${userId}`);
 
-    console.log(`Ws Connected: User is ${userId}`)
-
-    // Send userId to the client
-    ws.send(JSON.stringify({
-      type: "connected",
-      userId
-    }));
+    // Send confirmation to client
+    if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: "connected",
+            userId
+        }));
+    }
 
     ws.on('message', async (data) => {
-
       const rawData = data.toString();
-
       let parsedData;
+      
       try {
         parsedData = JSON.parse(rawData)
-        console.log("Parsed data successfully:", parsedData)
-
       } catch (error) {
-        console.log("Parse error:", error)
+        console.log("WS Parse Error:", error)
         return;
       }
 
       if (parsedData.type === "join-room") {
-
         const roomId = String(parsedData.roomId)
+        
+        try {
+            const room = await prismaClient.room.findUnique({
+              where: { id: roomId }
+            })
 
-        const room = await prismaClient.room.findUnique({
-          where: {
-            id: roomId
-          }
-        })
+            if (!room) {
+              ws.send(JSON.stringify({
+                type: "Error",
+                message: "Room Does not exist"
+              }));
+              return;
+            }
 
-        if (!room) {
-          ws.send(JSON.stringify({
-            type: "Error",
-            message: "Room Does not exist"
-          }));
-          return;
+            user?.rooms.add(roomId)
+            console.log(`User ${userId} joined Room ${roomId}`);
+
+            // Notify others
+            connectedUser.forEach((u) => {
+              if (u.rooms.has(roomId) && u.userId !== userId) {
+                u.ws.send(JSON.stringify({
+                  type: "user-joined",
+                  roomId,
+                  userId
+                }));
+              }
+            });
+        } catch(e) {
+            console.log("Error joining room:", e);
         }
-
-        user?.rooms.add(roomId)
-        console.log(`User ${userId} joined Room ${roomId}`);
-
-        connectedUser.forEach((u) => {
-          // Send to everyone in this room EXCEPT the person who just joined
-          if (u.rooms.has(roomId) && u.userId !== userId) {
-            console.log(`Notifying ${u.userId} that ${userId} joined`);
-            u.ws.send(JSON.stringify({
-              type: "user-joined",
-              roomId,
-              userId
-            }));
-          }
-        });
-
+        
       } else if (parsedData.type === "leave-room") {
-
         const roomId = String(parsedData.roomId);
         user.rooms.delete(roomId)
-
+        
         connectedUser.forEach((u) => {
           if (u.rooms.has(roomId) && u.userId !== userId) {
             u.ws.send(JSON.stringify({
@@ -110,51 +114,35 @@ export function initWebSocket(server: any) {
             }));
           }
         });
-
-        console.log(`User ${userId} has left the room ${roomId}`);
+        console.log(`User ${userId} left room ${roomId}`);
 
       } else if (parsedData.type === "chat") {
-
         const roomId = String(parsedData.roomId);
         const message = parsedData.message;
 
-        //use queue - better approach, push it to queue
-        //add try-catch to avoid crashing of the server 
-        //FIX the bug (do not save chats if a user is not in the room)
-        await prismaClient.chat.create({
-          data: {
-            roomId,
-            message,
-            userId
-          }
-        });
+        try {
+            await prismaClient.chat.create({
+              data: { roomId, message, userId }
+            });
 
-        console.log(`New Message from ${userId} in Room ${roomId}`);
+            connectedUser.forEach((u) => {
+              if (u.rooms.has(roomId)) {
+                u.ws.send(
+                  JSON.stringify({
+                    type: "chat",
+                    roomId,
+                    message,
+                    sender: userId,
+                  })
+                );
+              }
+            });
+        } catch(e) {
+            console.log("Error saving chat:", e);
+        }
 
-        //Brodacast it to the All users in the room
-
-        connectedUser.forEach((u) => {
-          if (u.rooms.has(roomId)) {
-            u.ws.send(
-              JSON.stringify({
-                type: "chat",
-                roomId,
-                message,
-                sender: userId,
-              })
-            );
-          }
-        });
-      }
-
-      // this is the signalling server condition
-      else if (["offer", "answer", "ice-candidate"].includes(parsedData.type)) {
-
+      } else if (["offer", "answer", "ice-candidate"].includes(parsedData.type)) {
         SignallingServer(ws, parsedData, userId, connectedUser);
-
-      } else {
-
-        console.log("Unknown WS event", parsedData.type)
       }
     });
 
