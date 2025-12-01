@@ -35,7 +35,10 @@ const SignIn = () => {
 
             console.log("Signin Successful", response.data);
 
-            router.push("/me")
+            // Refresh the router to update server-side auth state
+            router.refresh();
+            // Then navigate to /me page
+            router.push("/me");
         } catch (error: any) {
             console.error("Signin Failed:", error.response?.data || error.message);
         } finally {

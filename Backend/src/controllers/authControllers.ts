@@ -70,10 +70,13 @@ export async function SignIn(req: Request, res: Response) {
             }, secret,
                 { expiresIn: "8h" });
 
+            const isProduction = process.env.NODE_ENV === "production";
+
             res.cookie("access_token", token, {
                 httpOnly: true,
-                secure: true,
-                sameSite: "none"
+                secure: isProduction,
+                sameSite: isProduction ? "none" : "lax",
+                maxAge: 8 * 60 * 60 * 1000, 
             });
 
             // send user data or success message
@@ -103,12 +106,14 @@ export async function WsToken(req: Request, res: Response) {
     }
 }
 
-export async function Logout(req:Request, res: Response) {
+export async function Logout(req: Request, res: Response) {
     try {
+        const isProduction = process.env.NODE_ENV === "production";
+
         res.clearCookie("access_token", {
             httpOnly: true,
-            sameSite: "none",
-            secure: true
+            sameSite: isProduction ? "none" : "lax",
+            secure: isProduction
         })
 
         return response(res, 200, "Successfully Logged Out");
