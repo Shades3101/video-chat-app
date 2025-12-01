@@ -35,13 +35,6 @@ const SignIn = () => {
 
             console.log("Signin Successful", response.data);
 
-            // Manually set cookie on frontend domain to ensure Next.js server can read it
-            if (response.data.data && response.data.data.token) {
-                const token = response.data.data.token;
-                document.cookie = `access_token=${token}; path=/; max-age=${8 * 60 * 60}; SameSite=Lax; Secure`;
-                console.log("Cookie set manually on frontend");
-            }
-
             // Refresh the router to update server-side auth state
             router.refresh();
             // Then navigate to /me page
