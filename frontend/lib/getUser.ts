@@ -8,8 +8,11 @@ export default async function getUser() {
         const token = cookieStore.get("access_token")?.value;
 
         if (!token) {
+            console.log("No access_token cookie found");
             return null;
         }
+
+        console.log("Fetching user with token:", token.substring(0, 20) + "...");
 
         const res = await axios.get(`${BACKEND_URL}/me`, {
             headers: {
@@ -17,12 +20,15 @@ export default async function getUser() {
             },
         });
 
-        if (!res.data) {
+        if (!res.data || !res.data.data) {
+            console.log("No user data in response");
             return null;
         }
+
+        console.log("User fetched successfully:", res.data.data.email);
         return res.data.data;
-    } catch (error) {
-        console.log("Error fetching user:", error);
+    } catch (error: any) {
+        console.log("Error fetching user:", error.response?.data || error.message);
         return null;
     }
 }

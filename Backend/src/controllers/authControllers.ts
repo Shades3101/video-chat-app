@@ -72,12 +72,17 @@ export async function SignIn(req: Request, res: Response) {
 
             const isProduction = process.env.NODE_ENV === "production";
 
+            console.log("Setting cookie in", isProduction ? "production" : "development", "mode");
+
             res.cookie("access_token", token, {
                 httpOnly: true,
                 secure: isProduction,
                 sameSite: isProduction ? "none" : "lax",
-                maxAge: 8 * 60 * 60 * 1000, 
+                maxAge: 8 * 60 * 60 * 1000, // 8 hours in milliseconds
+                path: "/",
             });
+
+            console.log("Cookie set successfully for user:", user.id);
 
             // send user data or success message
             return response(res, 200, "Login Success", user.id);
@@ -113,7 +118,8 @@ export async function Logout(req: Request, res: Response) {
         res.clearCookie("access_token", {
             httpOnly: true,
             sameSite: isProduction ? "none" : "lax",
-            secure: isProduction
+            secure: isProduction,
+            path: "/",
         })
 
         return response(res, 200, "Successfully Logged Out");
