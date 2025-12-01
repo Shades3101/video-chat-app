@@ -4,6 +4,9 @@ import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import getUser from "@/lib/getUser";
 
+// Force dynamic rendering for this page since it uses cookies
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const user = await getUser();
 
