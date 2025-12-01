@@ -81,7 +81,7 @@ export async function SignIn(req: Request, res: Response) {
             console.log("Cookie set successfully for user:", user.id);
 
             // send user data or success message
-            return response(res, 200, "Login Success", user.id);
+            return response(res, 200, "Login Success", { userId: user.id, token: token});
         }
 
     } catch (error) {
