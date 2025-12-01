@@ -24,14 +24,14 @@ export function initWebSocket(server: any) {
     }
 
     
-    const myURL = new URL(`https://dummy${url}`);
-    console.log(myURL);
-    const token = myURL.searchParams.get("wstoken") || "";
-    console.log(token);
+    // const myURL = new URL(`https://dummy${url}`);
+    // console.log(myURL);
+    // const token = myURL.searchParams.get("wstoken") || "";
+    // console.log(token);
 
 
-    // const queryParams = new URLSearchParams(url.split('?')[1]);
-    // const token = queryParams.get('wstoken') || "";
+    const queryParams = new URLSearchParams(url.split('?')[1]);
+    const token = queryParams.get('wstoken') || "";
     const userId = wsAuthMiddleware(token)
 
     if (userId === null) {
