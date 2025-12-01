@@ -35,6 +35,14 @@ const SignIn = () => {
 
             console.log("Signin Successful", response.data);
 
+            // Call our own Next.js API route to set the cookie securely on the frontend domain
+            if (response.data.data && response.data.data.token) {
+                await axios.post("/api/auth/session", {
+                    token: response.data.data.token
+                });
+                console.log("Session created via API route");
+            }
+
             // Refresh the router to update server-side auth state
             router.refresh();
             // Then navigate to /me page

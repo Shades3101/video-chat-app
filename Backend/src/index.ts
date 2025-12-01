@@ -11,8 +11,6 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-
-
 const app = express();
 app.use(cors({
     origin: process.env.FRONTEND_URL,
@@ -32,6 +30,8 @@ app.use("/api/", chatRoute)
 const server = http.createServer(app);
 initWebSocket(server)
 
-server.listen(3001, () => {
-    console.log(`Listening On Port 3001 with Both HTTP & WS`)
+const PORT = process.env.PORT || 3001;
+
+server.listen(PORT, () => {
+    console.log(`Listening On Port ${PORT} with Both HTTP & WS`)
 });
